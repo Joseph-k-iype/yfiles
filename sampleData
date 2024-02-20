@@ -1,0 +1,17 @@
+[
+  {"id": "Node1", "label": "Ancestor"},
+  {"id": "Node2", "label": "Parent"},
+  {"id": "Node3", "label": "Child"},
+  {"id": "Node4", "label": "Grandchild"}
+]
+
+[
+  {"source": "Node1", "target": "Node2", "label": "hasChild"},
+  {"source": "Node2", "target": "Node3", "label": "hasChild"},
+  {"source": "Node3", "target": "Node4", "label": "hasChild"}
+]
+
+[
+  {"id": "Group1", "nodes": ["Node1", "Node2"], "label": "Family Lineage 1"},
+  {"id": "Group2", "nodes": ["Node3", "Node4"], "label": "Family Lineage 2"}
+]

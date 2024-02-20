@@ -1,30 +1,26 @@
-import './assets/icons/icons.css'
-import './style.css'
-import './dialog.css'
+import './assets/icons/icons.css';
+import './style.css';
+import './dialog.css';
 import {
   GraphComponent,
   GraphViewerInputMode,
   ICommand,
   ScrollBarVisibility,
-  IEdgeStyle,
+  OrganicLayout,
+  LayoutExecutor,
+  IEnumerable,
+  Rect,
   ShapeNodeStyle,
   DefaultLabelStyle,
-  Size,
-  Rect,
-  Point,
-  Insets,
-  IEnumerable,
-  HierarchicLayout,
-  LayoutExecutor
-} from 'yfiles'
-import { enableFolding } from './lib/FoldingSupport'
-import loadGraph from './lib/loadGraph'
-import './lib/yFilesLicense'
-import { initializeGraphOverview } from './graph-overview'
-import { initializeTooltips } from './tooltips'
-import { enableGraphML } from './graph-io'
-import { initializeContextMenu } from './context-menu'
-import { initializeGraphSearch } from './graph-search'
+} from 'yfiles';
+import { enableFolding } from './lib/FoldingSupport';
+import loadGraph from './lib/loadGraph';
+import './lib/yFilesLicense';
+import { initializeGraphOverview } from './graph-overview';
+import { initializeTooltips } from './tooltips';
+import { enableGraphML } from './graph-io';
+import { initializeContextMenu } from './context-menu';
+import { initializeGraphSearch } from './graph-search';
 
 let graphComponent: GraphComponent;
 
@@ -39,9 +35,7 @@ async function run() {
 }
 
 async function initializeGraphComponent(): Promise<GraphComponent> {
-  const graphComponent = new GraphComponent(
-    document.querySelector('.graph-component-container')!
-  );
+  const graphComponent = new GraphComponent(document.querySelector('.graph-component-container')!);
   graphComponent.horizontalScrollBarPolicy = ScrollBarVisibility.AS_NEEDED_DYNAMIC;
   graphComponent.verticalScrollBarPolicy = ScrollBarVisibility.AS_NEEDED_DYNAMIC;
   const mode = new GraphViewerInputMode();
@@ -76,49 +70,76 @@ function initializeToolbar(graphComponent: GraphComponent) {
 function processInputs() {
   const nodesInput = JSON.parse(document.getElementById('nodesInput').value);
   const edgesInput = JSON.parse(document.getElementById('edgesInput').value);
-  const groupsInput = JSON.parse(document.getElementById('groupsInput').value);
+  let groupsInput;
+  try {
+    groupsInput = JSON.parse(document.getElementById('groupsInput').value);
+  } catch (e) {
+    groupsInput = null; // Groups input is optional
+  }
 
   const graph = graphComponent.graph;
   graph.clear();
 
-  const nodesMap = new Map();
-
   nodesInput.forEach(nodeData => {
-    const createdNode = graph.createNode({ labels: [nodeData.label] });
-    nodesMap.set(nodeData.id, createdNode);
+    const layoutRect = new Rect(Math.random() * 400, Math.random() * 400, 30, 20); // Random position and default size
+    const createdNode = graph.createNode({ layout: layoutRect, style: new ShapeNodeStyle({ fill: 'lightblue', stroke: 'black' }), tag: nodeData.id });
+
+    graph.addLabel(createdNode, nodeData.label);
   });
 
   edgesInput.forEach(edgeData => {
-    const sourceNode = nodesMap.get(edgeData.source);
-    const targetNode = nodesMap.get(edgeData.target);
+    const sourceNode = graph.nodes.find(node => node.tag === edgeData.source);
+    const targetNode = graph.nodes.find(node => node.tag === edgeData.target);
     if (sourceNode && targetNode) {
       const edge = graph.createEdge(sourceNode, targetNode);
-      if (edgeData.label) {
-        graph.addLabel(edge, edgeData.label);
-      }
+      graph.addLabel(edge, edgeData.label);
     }
   });
 
-  groupsInput.forEach(groupData => {
-    const groupNode = graph.createGroupNode();
-    const childNodes = groupData.nodes.map(nodeId => nodesMap.get(nodeId)).filter(node => node);
-    if (childNodes.length > 0) {
-      graph.groupNodes(groupNode, IEnumerable.from(childNodes));
-    }
-    if (groupData.label) {
-      graph.addLabel(groupNode, groupData.label);
-    }
-  });
+  // if (groupsInput) {
+  //   groupsInput.forEach(groupData => {
+  //     const childNodes = groupData.nodes.map(nodeId => graph.nodes.find(node => node.tag === nodeId)).filter(node => node);
+  //     const groupNode = graph.createGroupNode();
+  //     childNodes.forEach(node => graph.groupNodes(groupNode, node));
+  //     if (groupData.label) {
+  //       graph.addLabel(groupNode, groupData.label);
+  //     }
+  //   });
+  // }
 
-  // Apply a hierarchic layout to visualize the graph nicely
-  const layout = new HierarchicLayout();
+  if (groupsInput) {
+    groupsInput.forEach(groupData => {
+        const childNodes = groupData.nodes.map(nodeId => graph.nodes.find(node => node.tag === nodeId)).filter(node => node !== undefined);
+        if (childNodes.length > 0) {
+            const groupNode = graph.createGroupNode();
+            // Use IEnumerable.from to correctly pass an IEnumerable<INode>
+            graph.groupNodes(groupNode, IEnumerable.from(childNodes));
+            if (groupData.label) {
+                graph.addLabel(groupNode, groupData.label);
+            }
+        }
+    });
+}
+
+
+  applyLayout();
+}
+
+function applyLayout() {
+  const layout = new OrganicLayout({
+    minimumNodeDistance: 50,
+    preferredEdgeLength: 100,
+    deterministic: true,
+    nodeOverlapsAllowed: false,
+    considerNodeLabels: true,
+  });
   const layoutExecutor = new LayoutExecutor({
     graphComponent: graphComponent,
-    layout: layout
+    layout: layout,
+    duration: '700ms',
   });
-  layoutExecutor.start();
+  layoutExecutor.start().catch(error => console.error('Layout execution failed:', error));
 }
 
 window.processInputs = processInputs;
-
 document.addEventListener('DOMContentLoaded', run);
